@@ -11,6 +11,8 @@ staticfiles/
 venv/
 .env/
 .venv/
+Hirelink_backend/venv/
+
 
 # IDE
 .vscode/
