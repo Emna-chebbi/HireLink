@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 18, "column": 0}, "map": {"version":3,"sources":["file:///C:/Users/emnac.AETHER/Documents/IRM/3rd_year/PROJET/HireLink/hirelink-frontend/app/page.tsx"],"sourcesContent":["// app/page.tsx\r\nexport default function HomePage() {\r\n  return (\r\n    <main className=\"mx-auto max-w-4xl px-4 py-16 text-slate-50\">\r\n      <h1 className=\"text-4xl font-bold mb-4\">Bienvenue sur HireLink</h1>\r\n      <p className=\"text-slate-300 max-w-2xl\">\r\n        Portail de recrutement avec backend Django (authentification JWT,\r\n        rôles administrateur, candidat et recruteur) et frontend Next.js moderne.\r\n      </p>\r\n    </main>\r\n  );\r\n}\r\n"],"names":[],"mappings":"AAAA,eAAe;;;;;;;AACA,SAAS;IACtB,qBACE,8OAAC;QAAK,WAAU;;0BACd,8OAAC;gBAAG,WAAU;0BAA0B;;;;;;0BACxC,8OAAC;gBAAE,WAAU;0BAA2B;;;;;;;;;;;;AAM9C"}}]
+}
