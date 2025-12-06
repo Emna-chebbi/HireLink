@@ -1,31 +1,40 @@
+// app/login/page.tsx
 'use client';
 
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AuthLayout } from '../components/AuthLayout';
 import { apiFetch } from '@/lib/api';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+  const [remember, setRemember] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+    setInfo(null);
     setLoading(true);
 
     const form = e.currentTarget;
     const formData = new FormData(form);
+    const email = String(formData.get('email') || '').trim();
+    const password = String(formData.get('password') || '');
 
-    const payload = {
-      email: formData.get('email'),
-      password: formData.get('password'),
-    };
+    if (!email || !password) {
+      setError('Merci de renseigner votre adresse email et votre mot de passe.');
+      setLoading(false);
+      return;
+    }
 
     try {
       const data = await apiFetch('/users/login/', {
         method: 'POST',
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ email, password }),
       });
 
       if (typeof window !== 'undefined') {
@@ -35,40 +44,123 @@ export default function LoginPage() {
         localStorage.setItem('user_id', String(data.user_id));
       }
 
-      router.push('/dashboard');
+      setInfo('Connexion réussie. Redirection vers votre espace.');
+      const redirectTo =
+        data.role === 'candidate'
+          ? '/candidate/dashboard'
+          : data.role === 'recruiter'
+          ? '/recruiter/dashboard'
+          : '/admin/dashboard';
+
+      setTimeout(() => router.push(redirectTo), 800);
     } catch (err: any) {
-      setError(err.message ?? 'Erreur de connexion');
+      const msg =
+        typeof err?.message === 'string' && err.message.trim()
+          ? err.message
+          : 'Les identifiants fournis ne sont pas reconnus. Vérifiez vos informations et réessayez.';
+      setError(msg);
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="max-w-md space-y-4">
-      <h1 className="text-2xl font-bold">Connexion</h1>
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <input
-          name="email"
-          type="email"
-          placeholder="Email"
-          required
-          className="w-full rounded border px-3 py-2"
-        />
-        <input
-          name="password"
-          type="password"
-          placeholder="Mot de passe"
-          required
-          className="w-full rounded border px-3 py-2"
-        />
+    <AuthLayout
+      title="Connexion à HireLink"
+      subtitle="Accédez à votre espace candidat, recruteur ou administrateur."
+    >
+      {error && (
+        <div className="rounded-md border border-red-500/60 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+          <p className="font-medium">Impossible de vous connecter</p>
+          <p className="mt-0.5 text-xs">{error}</p>
+        </div>
+      )}
+      {info && (
+        <div className="rounded-md border border-emerald-500/60 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
+          {info}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-1">
+          <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
+            Adresse email
+          </label>
+          <div className="relative">
+            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 dark:text-slate-500">
+              @
+            </span>
+            <input
+              name="email"
+              type="email"
+              required
+              className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-8 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-50 dark:placeholder:text-slate-500"
+              placeholder="vous@example.com"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
+            Mot de passe
+          </label>
+          <div className="relative">
+            <input
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              required
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pr-10 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-50 dark:placeholder:text-slate-500"
+              placeholder="Votre mot de passe"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(v => !v)}
+              className="absolute inset-y-0 right-0 flex items-center pr-3 text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+              aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+            >
+              {showPassword ? 'Masquer' : 'Afficher'}
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-300">
+          <label className="inline-flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={e => setRemember(e.target.checked)}
+              className="h-3 w-3 rounded border-slate-400 bg-white text-blue-500 dark:border-slate-600 dark:bg-slate-900"
+            />
+            Rester connecté sur cet appareil
+          </label>
+          <button
+            type="button"
+            onClick={() => router.push('/password-reset')}
+            className="text-blue-600 hover:text-blue-500 dark:text-blue-300 dark:hover:text-blue-200"
+          >
+            Mot de passe oublié
+          </button>
+        </div>
+
         <button
+          type="submit"
           disabled={loading}
-          className="w-full rounded bg-blue-600 py-2 font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+          className="w-full rounded-lg bg-blue-600 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-500/30 hover:bg-blue-500 disabled:opacity-60 transition-colors"
         >
-          {loading ? 'Connexion...' : 'Se connecter'}
+          {loading ? 'Connexion en cours...' : 'Se connecter'}
         </button>
       </form>
-      {error && <p className="text-sm text-red-600">{error}</p>}
-    </div>
+
+      <p className="pt-2 text-center text-xs text-slate-600 dark:text-slate-300">
+        Nouveau sur HireLink ?{' '}
+        <button
+          type="button"
+          onClick={() => router.push('/register')}
+          className="text-blue-600 hover:text-blue-500 dark:text-blue-300 dark:hover:text-blue-200"
+        >
+          Créer un compte gratuitement
+        </button>
+      </p>
+    </AuthLayout>
   );
 }
