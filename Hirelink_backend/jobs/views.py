@@ -1,3 +1,4 @@
+# jobs/views.py
 from rest_framework.permissions import AllowAny
 from django.db.models import Q
 from rest_framework import generics, permissions, status, filters
@@ -5,13 +6,13 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
+from django.db.models import Count
 from .models import Job, JobApplication, SavedJob
 from .serializers import (
     JobSerializer, JobCreateUpdateSerializer,
     JobApplicationSerializer, JobApplicationCreateSerializer,
     SavedJobSerializer, JobSearchSerializer
 )
-from users.models import CustomUser
 
 class StandardResultsSetPagination(PageNumberPagination):
     page_size = 10
@@ -19,9 +20,9 @@ class StandardResultsSetPagination(PageNumberPagination):
     max_page_size = 100
 
 class JobListView(generics.ListAPIView):
-    """View for listing all active jobs (temporarily public)"""
+    """View for listing all active jobs"""
     serializer_class = JobSerializer
-    permission_classes = [AllowAny]  # Temporary: Allow anyone to view
+    permission_classes = [AllowAny]
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['job_type', 'experience_level', 'company', 'location']
@@ -30,16 +31,7 @@ class JobListView(generics.ListAPIView):
     ordering = ['-created_at']
     
     def get_queryset(self):
-        queryset = Job.objects.filter(is_active=True).select_related('posted_by')
-       
-        
-        # If user is a recruiter, also show their own inactive jobs
-        #if self.request.user.role == 'recruiter':
-        #    queryset = queryset.filter(
-         #       Q(is_active=True) | Q(posted_by=self.request.user)
-          #  )
-        
-        return queryset
+        return Job.objects.filter(is_active=True).select_related('posted_by')
 
 class JobSearchView(APIView):
     """Advanced job search with multiple filters"""
@@ -49,11 +41,8 @@ class JobSearchView(APIView):
         serializer = JobSearchSerializer(data=request.data)
         if serializer.is_valid():
             data = serializer.validated_data
-            
-            # Start with all active jobs
             queryset = Job.objects.filter(is_active=True).select_related('posted_by')
             
-            # Keyword search (search in multiple fields)
             if data.get('keyword'):
                 keyword = data['keyword']
                 queryset = queryset.filter(
@@ -64,33 +53,26 @@ class JobSearchView(APIView):
                     Q(preferred_skills__icontains=keyword)
                 )
             
-            # Location filter
             if data.get('location'):
                 queryset = queryset.filter(location__icontains=data['location'])
             
-            # Job type filter
             if data.get('job_type'):
                 queryset = queryset.filter(job_type__in=data['job_type'])
             
-            # Experience level filter
             if data.get('experience_level'):
                 queryset = queryset.filter(experience_level__in=data['experience_level'])
             
-            # Salary range filter
             if data.get('salary_min'):
                 queryset = queryset.filter(salary_min__gte=data['salary_min'])
             if data.get('salary_max'):
                 queryset = queryset.filter(salary_max__lte=data['salary_max'])
             
-            # Company filter
             if data.get('company'):
                 queryset = queryset.filter(company__icontains=data['company'])
             
-            # Sorting
             sort_by = data.get('sort_by', '-created_at')
             queryset = queryset.order_by(sort_by)
             
-            # Pagination
             page = data.get('page', 1)
             page_size = data.get('page_size', 10)
             paginator = PageNumberPagination()
@@ -105,9 +87,18 @@ class JobSearchView(APIView):
 
 class JobDetailView(generics.RetrieveAPIView):
     """View for retrieving a single job"""
-    queryset = Job.objects.filter(is_active=True)
     serializer_class = JobSerializer
     permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        # Allow users to see their own inactive jobs
+        user = self.request.user
+        if hasattr(user, 'role') and user.role == 'recruiter':
+            return Job.objects.filter(
+                Q(is_active=True) | Q(posted_by=user)
+            ).select_related('posted_by')
+        return Job.objects.filter(is_active=True).select_related('posted_by')
+
 
 class JobCreateView(generics.CreateAPIView):
     """View for recruiters to create new jobs"""
@@ -115,7 +106,6 @@ class JobCreateView(generics.CreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
     
     def perform_create(self, serializer):
-        # Automatically set the posted_by field to the current user
         serializer.save(posted_by=self.request.user)
 
 class JobUpdateView(generics.UpdateAPIView):
@@ -124,21 +114,34 @@ class JobUpdateView(generics.UpdateAPIView):
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
-        # Only allow recruiters to update their own jobs
         return Job.objects.filter(posted_by=self.request.user)
+
 
 class JobDeleteView(generics.DestroyAPIView):
     """View for recruiters to delete their jobs"""
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
-        # Only allow recruiters to delete their own jobs
         return Job.objects.filter(posted_by=self.request.user)
     
     def perform_destroy(self, instance):
-        # Instead of actually deleting, mark as inactive
-        instance.is_active = False
-        instance.save()
+        # Actually delete the job from database
+        instance.delete()
+    
+    def delete(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            job_title = instance.title
+            self.perform_destroy(instance)
+            return Response(
+                {"detail": f"Job '{job_title}' deleted successfully."},
+                status=status.HTTP_200_OK
+            )
+        except Exception as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 class RecruiterJobListView(generics.ListAPIView):
     """View for recruiters to see all jobs they've posted"""
@@ -147,7 +150,6 @@ class RecruiterJobListView(generics.ListAPIView):
     pagination_class = StandardResultsSetPagination
     
     def get_queryset(self):
-        # Return all jobs posted by the current recruiter
         return Job.objects.filter(
             posted_by=self.request.user
         ).order_by('-created_at')
@@ -158,7 +160,6 @@ class JobApplicationCreateView(generics.CreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
     
     def perform_create(self, serializer):
-        # Automatically set the applicant to the current user
         serializer.save(applicant=self.request.user)
 
 class JobApplicationsListView(generics.ListAPIView):
@@ -168,17 +169,14 @@ class JobApplicationsListView(generics.ListAPIView):
     pagination_class = StandardResultsSetPagination
     
     def get_queryset(self):
-        # Get job ID from URL parameters
         job_id = self.kwargs.get('job_id')
         
         if job_id:
-            # Return applications for a specific job
             return JobApplication.objects.filter(
                 job__id=job_id,
                 job__posted_by=self.request.user
             ).select_related('job', 'applicant').order_by('-applied_at')
         else:
-            # Return all applications for recruiter's jobs
             return JobApplication.objects.filter(
                 job__posted_by=self.request.user
             ).select_related('job', 'applicant').order_by('-applied_at')
@@ -207,15 +205,12 @@ class SaveJobView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        # Check if job is already saved
         saved_job = SavedJob.objects.filter(job=job, user=request.user).first()
         
         if saved_job:
-            # Unsave the job
             saved_job.delete()
             return Response({"detail": "Job unsaved."}, status=status.HTTP_200_OK)
         else:
-            # Save the job
             SavedJob.objects.create(job=job, user=request.user)
             return Response({"detail": "Job saved."}, status=status.HTTP_201_CREATED)
 
@@ -229,3 +224,61 @@ class SavedJobsListView(generics.ListAPIView):
         return SavedJob.objects.filter(
             user=self.request.user
         ).select_related('job').order_by('-saved_at')
+
+class RecruiterDashboardStatsView(APIView):
+    """View for recruiter dashboard statistics"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        # Check if user is recruiter
+        if not hasattr(request.user, 'role') or request.user.role != 'recruiter':
+            return Response(
+                {"detail": "Only recruiters can access this endpoint."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        jobs = Job.objects.filter(posted_by=request.user)
+        
+        total_jobs = jobs.count()
+        active_jobs = jobs.filter(is_active=True).count()
+        total_applications = JobApplication.objects.filter(
+            job__posted_by=request.user
+        ).count()
+        
+        recent_jobs = jobs.order_by('-created_at')[:5]
+        recent_jobs_data = JobSerializer(recent_jobs, many=True, context={'request': request}).data
+        
+        applications_by_status = JobApplication.objects.filter(
+            job__posted_by=request.user
+        ).values('status').annotate(count=Count('id'))
+        
+        return Response({
+            'stats': {
+                'total_jobs': total_jobs,
+                'active_jobs': active_jobs,
+                'total_applications': total_applications,
+            },
+            'applications_by_status': list(applications_by_status),
+            'recent_jobs': recent_jobs_data
+        })
+
+class JobToggleActiveView(APIView):
+    """View to toggle job active status"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request, pk):
+        try:
+            job = Job.objects.get(pk=pk, posted_by=request.user)
+        except Job.DoesNotExist:
+            return Response(
+                {"detail": "Job not found or you don't have permission."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        job.is_active = not job.is_active
+        job.save()
+        
+        return Response({
+            'detail': f"Job {'activated' if job.is_active else 'deactivated'} successfully.",
+            'is_active': job.is_active
+        })

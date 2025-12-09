@@ -47,9 +47,9 @@ export default function LoginPage() {
       setInfo('Connexion réussie. Redirection vers votre espace.');
       const redirectTo =
         data.role === 'candidate'
-          ? '/candidate/dashboard'
+          ? '/dashboard'
           : data.role === 'recruiter'
-          ? '/recruiter/dashboard'
+          ? '/dashboard'
           : '/admin/dashboard';
 
       setTimeout(() => router.push(redirectTo), 800);

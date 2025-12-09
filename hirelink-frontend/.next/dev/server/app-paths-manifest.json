@@ -1,5 +1,10 @@
 {
   "/dashboard/page": "app/dashboard/page.js",
-  "/page": "app/page.js",
-  "/register/page": "app/register/page.js"
+  "/dashboard/recruiter/jobs/[id]/edit/page": "app/dashboard/recruiter/jobs/[id]/edit/page.js",
+  "/dashboard/recruiter/jobs/[id]/page": "app/dashboard/recruiter/jobs/[id]/page.js",
+  "/dashboard/recruiter/jobs/create/page": "app/dashboard/recruiter/jobs/create/page.js",
+  "/dashboard/recruiter/jobs/page": "app/dashboard/recruiter/jobs/page.js",
+  "/dashboard/recruiter/page": "app/dashboard/recruiter/page.js",
+  "/login/page": "app/login/page.js",
+  "/page": "app/page.js"
 }
