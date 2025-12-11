@@ -1,32 +1,11 @@
-# users/views/profile_views.py - ADD THIS TO YOUR EXISTING FILE
-from rest_framework import generics, permissions, status
+# users/views/resume_views.py - CREATE NEW FILE
+from rest_framework import status, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from users.models import CustomUser
 from users.serializers import UserSerializer
 
-# users/views/profile_views.py - Update UserDetailView
-class UserDetailView(generics.RetrieveUpdateAPIView):
-    serializer_class = UserSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_object(self):
-        return self.request.user
-    
-    def retrieve(self, request, *args, **kwargs):
-        instance = self.get_object()
-        serializer = self.get_serializer(instance)
-        
-        # Debug: Print what's being returned
-        print(f"DEBUG - User: {instance.username}")
-        print(f"DEBUG - Resume field: {instance.resume}")
-        print(f"DEBUG - Resume URL: {instance.resume.url if instance.resume else 'No resume'}")
-        print(f"DEBUG - Serialized data: {serializer.data}")
-        
-        return Response(serializer.data)
-
-# ADD THESE NEW VIEWS:
 class UploadResumeView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
