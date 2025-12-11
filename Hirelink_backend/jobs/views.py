@@ -150,9 +150,11 @@ class RecruiterJobListView(generics.ListAPIView):
     pagination_class = StandardResultsSetPagination
     
     def get_queryset(self):
-        return Job.objects.filter(
+        """return Job.objects.filter(
             posted_by=self.request.user
-        ).order_by('-created_at')
+        ).order_by('-created_at')"""
+        qs = Job.objects.filter(posted_by=self.request.user)
+        return qs.order_by('-created_at')
 
 class JobApplicationCreateView(generics.CreateAPIView):
     """View for candidates to apply for jobs"""

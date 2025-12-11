@@ -58,6 +58,9 @@ export default function RegisterPage() {
     try {
       const data = await apiFetch('/users/register/', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(payload),
       });
 
@@ -69,23 +72,45 @@ export default function RegisterPage() {
       );
 
       if (role === 'candidate') {
-        if (typeof window !== 'undefined' && data.access_token && data.refresh_token) {
+        if (
+          typeof window !== 'undefined' &&
+          data.access_token &&
+          data.refresh_token
+        ) {
           localStorage.setItem('access_token', data.access_token);
           localStorage.setItem('refresh_token', data.refresh_token);
-          localStorage.setItem('user_role', data.role);
+          localStorage.setItem('user_role', data.role || 'candidate');
           localStorage.setItem('user_id', String(data.user_id));
         }
         setTimeout(() => router.push('/dashboard'), 1000);
       } else {
         setTimeout(() => router.push('/login'), 1500);
       }
-    } catch (err: any) {
-      const msg =
-        typeof err?.message === 'string' && err.message.trim()
-          ? err.message
-          : "Un problème est survenu lors de l’inscription. Vérifiez les informations saisies.";
-      setError(msg);
-    } finally {
+} catch (err: any) {
+  console.error('Register error detail:', err);
+
+  // essayer de lire d'abord ce qui vient du backend
+  const backend = err?.data || err?.raw || err;
+
+  const firstBackendMsg =
+    backend?.password ||
+    backend?.email ||
+    backend?.entreprise ||
+    backend?.detail ||
+    backend?.non_field_errors;
+
+  const msg =
+    typeof firstBackendMsg === 'string'
+      ? firstBackendMsg
+      : Array.isArray(firstBackendMsg)
+      ? firstBackendMsg.join(' ')
+      : typeof err?.message === 'string' && err.message.trim()
+      ? err.message
+      : "Un problème est survenu lors de l’inscription. Vérifiez les informations saisies.";
+
+  setError(msg);
+}
+ finally {
       setLoading(false);
     }
   }
@@ -143,7 +168,7 @@ export default function RegisterPage() {
           <select
             name="role"
             value={role}
-            onChange={e => setRole(e.target.value as Role)}
+            onChange={(e) => setRole(e.target.value as Role)}
             className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-50"
             required
           >
@@ -189,7 +214,7 @@ export default function RegisterPage() {
             />
             <button
               type="button"
-              onClick={() => setShowPassword(v => !v)}
+              onClick={() => setShowPassword((v) => !v)}
               className="absolute inset-y-0 right-0 flex items-center pr-3 text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
             >
               {showPassword ? 'Masquer' : 'Afficher'}
@@ -206,7 +231,7 @@ export default function RegisterPage() {
             />
             <button
               type="button"
-              onClick={() => setShowPassword2(v => !v)}
+              onClick={() => setShowPassword2((v) => !v)}
               className="absolute inset-y-0 right-0 flex items-center pr-3 text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
             >
               {showPassword2 ? 'Masquer' : 'Afficher'}

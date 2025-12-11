@@ -1,3 +1,4 @@
+# Hirelink_backend/users/serializers/user_serializer.py
 from rest_framework import serializers
 from users.models import CustomUser
 from users.serializers.entreprise_serializer import EntrepriseSerializer

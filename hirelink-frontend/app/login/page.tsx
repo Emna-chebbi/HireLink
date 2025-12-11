@@ -49,7 +49,7 @@ export default function LoginPage() {
         data.role === 'candidate'
           ? '/dashboard'
           : data.role === 'recruiter'
-          ? '/dashboard'
+          ? '/dashboard/recruiter'
           : '/admin/dashboard';
 
       setTimeout(() => router.push(redirectTo), 800);

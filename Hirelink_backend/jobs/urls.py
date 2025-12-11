@@ -1,6 +1,8 @@
 # jobs/urls.py
 from django.urls import path
 from . import views
+from .views_ai import GenerateApplicationEmailView
+from jobs.views_recruiter import RecruiterApplicationsView
 
 urlpatterns = [
     # Job CRUD operations
@@ -27,4 +29,9 @@ urlpatterns = [
     # New recruiter endpoints
     path('recruiter/stats/', views.RecruiterDashboardStatsView.as_view(), name='recruiter-stats'),
     path('recruiter/jobs/<int:pk>/toggle/', views.JobToggleActiveView.as_view(), name='job-toggle-active'),
+
+    path('users/recruiter/jobs/',views.RecruiterJobListView.as_view(),name='recruiter-jobs'),
+    path('users/recruiter/applications/', RecruiterApplicationsView.as_view(),name='recruiter-applications'),
+    # AI-generated email endpoint
+    path('recruiter/applications/<int:application_id>/generate-email/',GenerateApplicationEmailView.as_view(),name='recruiter-generate-email',), 
 ]

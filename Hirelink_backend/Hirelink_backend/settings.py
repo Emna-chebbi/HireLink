@@ -22,6 +22,7 @@ ALLOWED_HOSTS = ['*']  # Allow all for development
 INSTALLED_APPS = [
     'jobs', 
     'users',
+    'django_filters',
     'rest_framework',
     'corsheaders',
     'django.contrib.admin',
@@ -133,6 +134,9 @@ EMAIL_USE_TLS = True
 DEFAULT_FROM_EMAIL = 'HireLink <hammamiasma52@gmail.com>'
 
 REST_FRAMEWORK = {
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
+    ],
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     )
