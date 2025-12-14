@@ -23,6 +23,9 @@ INSTALLED_APPS = [
     'jobs', 
     'users',
     'rest_framework',
+    'rest_framework_simplejwt',  # ADD THIS
+    'django_filters',  # ADD THIS
+
     'corsheaders',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -31,6 +34,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework_simplejwt.token_blacklist',
+    'applications',
 ]
 
 MIDDLEWARE = [
@@ -105,6 +109,10 @@ USE_TZ = True
 
 
 STATIC_URL = 'static/'
+# Media files (uploads)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -113,8 +121,10 @@ CORS_ALLOW_ALL_ORIGINS = True  # Allow all origins for development
 CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",  
+    "http://localhost:5173", 
+    "http://localhost:3001",  # Remix dev server
+    "http://127.0.0.1:3001",
+      
 ]
 
 CORS_ALLOW_CREDENTIALS = True
