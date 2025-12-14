@@ -8,8 +8,9 @@ from datetime import timedelta
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Media files
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 
 
@@ -35,6 +36,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework_simplejwt.token_blacklist',
     'applications',
+    'ai_resume'
 ]
 
 MIDDLEWARE = [
@@ -50,13 +52,21 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'Hirelink_backend.urls'
 
+# Add this to TEMPLATES if not present
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [
+            os.path.join(BASE_DIR, 'templates'),
+            # Make sure media path is accessible
+            os.path.join(BASE_DIR, 'media'),
+        ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
+                # Make sure these are included:
+                'django.template.context_processors.media',
+                'django.template.context_processors.static',
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
@@ -99,8 +109,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
-
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
 USE_I18N = True
@@ -124,6 +132,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173", 
     "http://localhost:3001",  # Remix dev server
     "http://127.0.0.1:3001",
+    "http://localhost:8000",  # Add this for media files
+
       
 ]
 
