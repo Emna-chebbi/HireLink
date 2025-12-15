@@ -1,4 +1,4 @@
-// app/dashboard/page.tsx - Updated without AI Tools section
+// app/dashboard/page.tsx - FIXED WITH OLD RECRUITER DESIGN
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -56,40 +56,77 @@ export default function DashboardPage() {
 
     async function loadDashboard() {
       try {
+        setLoading(true);
+        
+        // FIXED: Using correct endpoint '/users/profile/' instead of '/api/users/profile/'
+        console.log('Fetching user profile from /users/profile/...');
         const userData = await apiFetch('/users/profile/', { method: 'GET' }, access!);
+        
+        console.log('User data received:', userData);
         
         // Calculate profile completion percentage
         let completion = 0;
         if (userData.full_name) completion += 20;
         if (userData.headline) completion += 15;
         if (userData.location) completion += 15;
-        if (userData.skills?.length > 0) completion += 20;
+        
+        // Handle skills - check if it exists and has length
+        const hasSkills = userData.skills && 
+                         (Array.isArray(userData.skills) ? userData.skills.length > 0 : 
+                          typeof userData.skills === 'string' ? userData.skills.trim().length > 0 : false);
+        
+        if (hasSkills) completion += 20;
+        
         if (userData.resume_url) completion += 20;
         if (userData.bio) completion += 10;
+        
         setCompletionPercentage(Math.min(completion, 100));
         
-        const enhancedUserData = {
-          ...userData,
+        const enhancedUserData: UserProfile = {
+          id: userData.id,
+          username: userData.username,
+          email: userData.email,
+          role: userData.role,
+          full_name: userData.full_name,
+          is_validated: userData.is_validated,
+          profile_picture: userData.profile_picture || null,
           headline: userData.headline || "Looking for new opportunities",
           location: userData.location || "Not specified",
           skills: userData.skills || [],
-          profile_picture: userData.profile_picture || null,
           resume_url: userData.resume_url || null,
           bio: userData.bio || "",
         };
         
+        console.log('Enhanced user data:', enhancedUserData);
         setUser(enhancedUserData);
 
         if (userData.role === 'candidate') {
           try {
+            console.log('Fetching candidate stats...');
             const statsData = await applicationApi.getApplicationStats(access!);
+            console.log('Candidate stats:', statsData);
             setStats(statsData);
-          } catch (statsError) {
-            console.log('Stats endpoint not available');
+          } catch (statsError: any) {
+            console.log('Stats endpoint not available:', statsError?.message);
+            // Don't set error here, just log it
           }
         }
-      } catch {
-        setError('Unable to load your profile. Please try again.');
+      } catch (err: any) {
+        console.error('Error loading dashboard:', err);
+        console.error('Error details:', err?.message, err?.status, err?.data);
+        
+        // More specific error messages
+        if (err?.status === 401) {
+          setError('Session expired. Please log in again.');
+          localStorage.removeItem('access_token');
+          router.replace('/login');
+        } else if (err?.status === 404) {
+          setError('Profile endpoint not found. Please check backend configuration.');
+        } else if (err?.status === 403) {
+          setError('Access denied. You may not have permission to access this dashboard.');
+        } else {
+          setError(`Unable to load your profile: ${err?.message || 'Please try again.'}`);
+        }
       } finally {
         setLoading(false);
       }
@@ -98,8 +135,8 @@ export default function DashboardPage() {
     loadDashboard();
   }, [router]);
 
-  // Quick actions configuration
-  const quickActions: QuickAction[] = [
+  // Candidate Quick Actions
+  const candidateQuickActions: QuickAction[] = [
     {
       title: 'Find Jobs',
       description: 'Browse and apply to positions',
@@ -161,6 +198,23 @@ export default function DashboardPage() {
               </svg>
               <span>{error}</span>
             </div>
+            <div className="mt-4 flex space-x-3">
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+              >
+                Retry
+              </button>
+              <button
+                onClick={() => {
+                  localStorage.removeItem('access_token');
+                  router.replace('/login');
+                }}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm"
+              >
+                Logout
+              </button>
+            </div>
           </div>
         </div>
       </main>
@@ -178,6 +232,133 @@ export default function DashboardPage() {
     );
   }
 
+  // RENDER RECRUITER DASHBOARD - OLD WORKING DESIGN
+  if (user.role === 'recruiter') {
+    return (
+      <main className="mx-auto max-w-7xl px-4 py-10 text-slate-900 dark:text-slate-50">
+        <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
+        
+        <div className="grid gap-6 md:grid-cols-2 mb-8">
+          {/* Profile Card for Recruiter */}
+          <section className="rounded-xl border border-slate-200 bg-white px-6 py-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
+            <h2 className="text-lg font-semibold text-slate-700 dark:text-slate-200 mb-4">
+              Profile
+            </h2>
+            <div className="space-y-3">
+              <p className="text-sm">
+                <span className="text-slate-500 dark:text-slate-400">Name:</span>{' '}
+                <span className="font-medium">
+                  {user.full_name || user.username}
+                </span>
+              </p>
+              <p className="text-sm">
+                <span className="text-slate-500 dark:text-slate-400">Email:</span>{' '}
+                <span className="font-medium">{user.email}</span>
+              </p>
+              <p className="text-sm">
+                <span className="text-slate-500 dark:text-slate-400">Role:</span>{' '}
+                <span className="font-medium capitalize">{user.role}</span>
+              </p>
+              <p className="mt-4 text-sm text-slate-400">
+                Recruiter account status:{' '}
+                <span className={`font-semibold ${user.is_validated ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'}`}>
+                  {user.is_validated ? '✓ Validated by administrator' : 'Pending validation'}
+                </span>
+              </p>
+            </div>
+          </section>
+
+          {/* Quick Access for Recruiter */}
+          <section className="rounded-xl border border-slate-200 bg-white px-6 py-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
+            <h2 className="text-lg font-semibold text-slate-700 dark:text-slate-200 mb-4">
+              Quick Access
+            </h2>
+            <ul className="space-y-2 text-sm text-blue-600 dark:text-blue-300">
+              <li className="flex items-center">
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Post a new job
+              </li>
+              <li className="flex items-center">
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Manage received applications
+              </li>
+              <li className="flex items-center">
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                View all your job postings
+              </li>
+            </ul>
+          </section>
+        </div>
+
+        {/* Job Management Section - Only for Recruiters */}
+        <section className="mb-8 rounded-xl border border-slate-200 bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-6 shadow-sm dark:border-slate-800 dark:bg-gradient-to-r dark:from-gray-900 dark:to-slate-900">
+          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-6">
+            Job Management
+          </h2>
+          <div className="grid gap-6 md:grid-cols-3">
+            <Link
+              href="/dashboard/recruiter"
+              className="block rounded-lg bg-white px-6 py-6 text-center shadow hover:shadow-md transition-all duration-300 hover:-translate-y-1 dark:bg-slate-800"
+            >
+              <div className="mb-4 inline-block rounded-lg bg-blue-100 p-4 dark:bg-blue-900/30">
+                <svg className="h-8 w-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </div>
+              <h3 className="font-semibold text-slate-900 dark:text-slate-200">
+                Dashboard
+              </h3>
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+                Statistics and overview
+              </p>
+            </Link>
+            
+            <Link
+              href="/dashboard/recruiter/jobs/create"
+              className="block rounded-lg bg-white px-6 py-6 text-center shadow hover:shadow-md transition-all duration-300 hover:-translate-y-1 dark:bg-slate-800"
+            >
+              <div className="mb-4 inline-block rounded-lg bg-green-100 p-4 dark:bg-green-900/30">
+                <svg className="h-8 w-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              </div>
+              <h3 className="font-semibold text-slate-900 dark:text-slate-200">
+                New Job
+              </h3>
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+                Post a new job opening
+              </p>
+            </Link>
+            
+            <Link
+              href="/dashboard/recruiter/jobs"
+              className="block rounded-lg bg-white px-6 py-6 text-center shadow hover:shadow-md transition-all duration-300 hover:-translate-y-1 dark:bg-slate-800"
+            >
+              <div className="mb-4 inline-block rounded-lg bg-purple-100 p-4 dark:bg-purple-900/30">
+                <svg className="h-8 w-8 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <h3 className="font-semibold text-slate-900 dark:text-slate-200">
+                My Jobs
+              </h3>
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+                Manage all my job postings
+              </p>
+            </Link>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  // RENDER CANDIDATE DASHBOARD (with all the new fixes)
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
@@ -194,7 +375,7 @@ export default function DashboardPage() {
             </div>
             <div className="flex items-center space-x-3">
               <span className="px-3 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 text-sm font-medium rounded-full">
-                {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                Candidate
               </span>
               <Link
                 href="/dashboard/profile"
@@ -208,13 +389,13 @@ export default function DashboardPage() {
 
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {user.role === 'candidate' && stats ? (
+          {stats ? (
             <>
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Applications</p>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white mt-2">{stats.total_applications}</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white mt-2">{stats.total_applications || 0}</p>
                   </div>
                   <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                     <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -225,7 +406,7 @@ export default function DashboardPage() {
                 <div className="mt-4">
                   <div className="flex items-center text-sm text-green-600 dark:text-green-400">
                     <span className="mr-1">↑</span>
-                    <span>{stats.recent_applications} recent applications</span>
+                    <span>{stats.recent_applications || 0} recent applications</span>
                   </div>
                 </div>
               </div>
@@ -238,7 +419,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
                     <svg className="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a22 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                   </div>
                 </div>
@@ -376,17 +557,25 @@ export default function DashboardPage() {
                       <div className="mt-6">
                         <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Top Skills</h4>
                         <div className="flex flex-wrap gap-2">
-                          {user.skills.slice(0, 6).map((skill, index) => (
-                            <span 
-                              key={index}
-                              className="px-3 py-1.5 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 text-blue-700 dark:text-blue-300 text-sm font-medium rounded-lg"
-                            >
-                              {skill}
-                            </span>
-                          ))}
-                          {user.skills.length > 6 && (
-                            <span className="px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400">
-                              +{user.skills.length - 6} more
+                          {Array.isArray(user.skills) ? (
+                            <>
+                              {user.skills.slice(0, 6).map((skill, index) => (
+                                <span 
+                                  key={index}
+                                  className="px-3 py-1.5 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 text-blue-700 dark:text-blue-300 text-sm font-medium rounded-lg"
+                                >
+                                  {skill}
+                                </span>
+                              ))}
+                              {user.skills.length > 6 && (
+                                <span className="px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400">
+                                  +{user.skills.length - 6} more
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="px-3 py-1.5 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 text-blue-700 dark:text-blue-300 text-sm font-medium rounded-lg">
+                              {user.skills}
                             </span>
                           )}
                         </div>
@@ -398,12 +587,12 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Quick Actions */}
+          {/* Quick Actions for Candidates */}
           <div>
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
               <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Quick Actions</h2>
               <div className="space-y-4">
-                {quickActions.map((action, index) => (
+                {candidateQuickActions.map((action, index) => (
                   <Link
                     key={index}
                     href={action.href}
@@ -430,7 +619,7 @@ export default function DashboardPage() {
 
         {/* Status Distribution (for candidates) */}
         {user.role === 'candidate' && stats && stats.by_status && Object.keys(stats.by_status).length > 0 && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white">Application Status</h2>
