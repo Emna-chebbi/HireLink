@@ -1,4 +1,3 @@
-# jobs/views.py
 from rest_framework.permissions import AllowAny
 from django.db.models import Q
 from rest_framework import generics, permissions, status, filters
@@ -6,13 +5,13 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import Count
 from .models import Job, JobApplication, SavedJob
 from .serializers import (
     JobSerializer, JobCreateUpdateSerializer,
     JobApplicationSerializer, JobApplicationCreateSerializer,
     SavedJobSerializer, JobSearchSerializer
 )
+from users.models import CustomUser
 
 class StandardResultsSetPagination(PageNumberPagination):
     page_size = 10
@@ -20,9 +19,9 @@ class StandardResultsSetPagination(PageNumberPagination):
     max_page_size = 100
 
 class JobListView(generics.ListAPIView):
-    """View for listing all active jobs"""
+    """View for listing all active jobs (temporarily public)"""
     serializer_class = JobSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [AllowAny]  # Temporary: Allow anyone to view
     pagination_class = StandardResultsSetPagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['job_type', 'experience_level', 'company', 'location']
@@ -31,7 +30,16 @@ class JobListView(generics.ListAPIView):
     ordering = ['-created_at']
     
     def get_queryset(self):
-        return Job.objects.filter(is_active=True).select_related('posted_by')
+        queryset = Job.objects.filter(is_active=True).select_related('posted_by')
+       
+        
+        # If user is a recruiter, also show their own inactive jobs
+        #if self.request.user.role == 'recruiter':
+        #    queryset = queryset.filter(
+         #       Q(is_active=True) | Q(posted_by=self.request.user)
+          #  )
+        
+        return queryset
 
 class JobSearchView(APIView):
     """Advanced job search with multiple filters"""
@@ -41,8 +49,11 @@ class JobSearchView(APIView):
         serializer = JobSearchSerializer(data=request.data)
         if serializer.is_valid():
             data = serializer.validated_data
+            
+            # Start with all active jobs
             queryset = Job.objects.filter(is_active=True).select_related('posted_by')
             
+            # Keyword search (search in multiple fields)
             if data.get('keyword'):
                 keyword = data['keyword']
                 queryset = queryset.filter(
@@ -53,26 +64,33 @@ class JobSearchView(APIView):
                     Q(preferred_skills__icontains=keyword)
                 )
             
+            # Location filter
             if data.get('location'):
                 queryset = queryset.filter(location__icontains=data['location'])
             
+            # Job type filter
             if data.get('job_type'):
                 queryset = queryset.filter(job_type__in=data['job_type'])
             
+            # Experience level filter
             if data.get('experience_level'):
                 queryset = queryset.filter(experience_level__in=data['experience_level'])
             
+            # Salary range filter
             if data.get('salary_min'):
                 queryset = queryset.filter(salary_min__gte=data['salary_min'])
             if data.get('salary_max'):
                 queryset = queryset.filter(salary_max__lte=data['salary_max'])
             
+            # Company filter
             if data.get('company'):
                 queryset = queryset.filter(company__icontains=data['company'])
             
+            # Sorting
             sort_by = data.get('sort_by', '-created_at')
             queryset = queryset.order_by(sort_by)
             
+            # Pagination
             page = data.get('page', 1)
             page_size = data.get('page_size', 10)
             paginator = PageNumberPagination()
@@ -99,6 +117,9 @@ class JobDetailView(generics.RetrieveAPIView):
             ).select_related('posted_by')
         return Job.objects.filter(is_active=True).select_related('posted_by')
 
+    queryset = Job.objects.filter(is_active=True)
+    serializer_class = JobSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
 class JobCreateView(generics.CreateAPIView):
     """View for recruiters to create new jobs"""
@@ -106,6 +127,7 @@ class JobCreateView(generics.CreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
     
     def perform_create(self, serializer):
+        # Automatically set the posted_by field to the current user
         serializer.save(posted_by=self.request.user)
 
 class JobUpdateView(generics.UpdateAPIView):
@@ -179,6 +201,7 @@ class JobApplicationsListView(generics.ListAPIView):
                 job__posted_by=self.request.user
             ).select_related('job', 'applicant').order_by('-applied_at')
         else:
+            # Return all applications for recruiter's jobs
             return JobApplication.objects.filter(
                 job__posted_by=self.request.user
             ).select_related('job', 'applicant').order_by('-applied_at')
@@ -207,12 +230,15 @@ class SaveJobView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         
+        # Check if job is already saved
         saved_job = SavedJob.objects.filter(job=job, user=request.user).first()
         
         if saved_job:
+            # Unsave the job
             saved_job.delete()
             return Response({"detail": "Job unsaved."}, status=status.HTTP_200_OK)
         else:
+            # Save the job
             SavedJob.objects.create(job=job, user=request.user)
             return Response({"detail": "Job saved."}, status=status.HTTP_201_CREATED)
 

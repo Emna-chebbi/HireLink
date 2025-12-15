@@ -1,6 +1,5 @@
+# jobs/models.py - KEEP THIS, REMOVE DUPLICATES
 from django.db import models
-# Import CustomUser using string reference to avoid circular import
-# Don't use: from users.models import CustomUser
 
 class Job(models.Model):
     JOB_TYPE_CHOICES = [
@@ -27,13 +26,12 @@ class Job(models.Model):
     salary_currency = models.CharField(max_length=10, default='USD')
     job_type = models.CharField(max_length=20, choices=JOB_TYPE_CHOICES, default='full_time')
     experience_level = models.CharField(max_length=20, choices=EXPERIENCE_LEVEL_CHOICES, default='entry')
-    posted_by = models.ForeignKey('users.CustomUser', on_delete=models.CASCADE, related_name='posted_jobs')  # Use string reference
+    posted_by = models.ForeignKey('users.CustomUser', on_delete=models.CASCADE, related_name='posted_jobs')
     is_active = models.BooleanField(default=True)
     application_deadline = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
-    # Additional fields for AI suggestions
     required_skills = models.TextField(blank=True, help_text="Comma-separated list of required skills")
     preferred_skills = models.TextField(blank=True, help_text="Comma-separated list of preferred skills")
     
@@ -44,13 +42,11 @@ class Job(models.Model):
         return f"{self.title} at {self.company}"
     
     def get_required_skills_list(self):
-        """Return required skills as a list"""
         if self.required_skills:
             return [skill.strip() for skill in self.required_skills.split(',') if skill.strip()]
         return []
     
     def get_preferred_skills_list(self):
-        """Return preferred skills as a list"""
         if self.preferred_skills:
             return [skill.strip() for skill in self.preferred_skills.split(',') if skill.strip()]
         return []
@@ -66,7 +62,7 @@ class JobApplication(models.Model):
     ]
     
     job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name='applications')
-    applicant = models.ForeignKey('users.CustomUser', on_delete=models.CASCADE, related_name='job_applications')  # Use string reference
+    applicant = models.ForeignKey('users.CustomUser', on_delete=models.CASCADE, related_name='job_applications')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     cover_letter = models.TextField(blank=True)
     resume = models.FileField(upload_to='resumes/%Y/%m/%d/', null=True, blank=True)
@@ -81,9 +77,8 @@ class JobApplication(models.Model):
         return f"{self.applicant.username} applied for {self.job.title}"
 
 class SavedJob(models.Model):
-    """For candidates to save jobs they're interested in"""
     job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name='saved_by_users')
-    user = models.ForeignKey('users.CustomUser', on_delete=models.CASCADE, related_name='saved_jobs')  # Use string reference
+    user = models.ForeignKey('users.CustomUser', on_delete=models.CASCADE, related_name='saved_jobs')
     saved_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:

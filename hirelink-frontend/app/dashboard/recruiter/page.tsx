@@ -1,16 +1,10 @@
-// app/dashboard/recruiter/page.tsx
+// app/dashboard/recruiter/page.tsx - UPDATED FOR RECRUITER-SPECIFIC JOBS
 'use client';
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
-
-type JobStats = {
-  total_jobs: number;
-  active_jobs: number;
-  total_applications: number;
-};
 
 type RecentJob = {
   id: number;
@@ -21,20 +15,16 @@ type RecentJob = {
   applications_count?: number;
 };
 
-type DashboardData = {
-  stats: JobStats;
-  recent_jobs: RecentJob[];
-  applications_by_status: Array<{
-    status: string;
-    count: number;
-  }>;
-};
-
 export default function RecruiterDashboardPage() {
   const router = useRouter();
-  const [data, setData] = useState<DashboardData | null>(null);
+  const [jobs, setJobs] = useState<RecentJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Calculate stats from recruiter's jobs
+  const totalJobs = jobs.length;
+  const activeJobs = jobs.filter(job => job.is_active).length;
+  const totalApplications = jobs.reduce((sum, job) => sum + (job.applications_count || 0), 0);
 
   useEffect(() => {
     const access = localStorage.getItem('access_token');
@@ -47,22 +37,131 @@ export default function RecruiterDashboardPage() {
     async function loadDashboardData() {
       try {
         setLoading(true);
-        console.log('Loading dashboard stats...');
-        const response = await apiFetch('/jobs/recruiter/stats/', { 
-          method: 'GET' 
-        }, access!);
+        console.log('Loading recruiter-specific dashboard data...');
         
-        console.log('Dashboard response:', response);
-        setData(response);
+        // Get recruiter's specific jobs
+        let jobsData: RecentJob[] = [];
+        
+        try {
+          const response = await apiFetch('/jobs/recruiter/jobs/', { 
+            method: 'GET' 
+          }, access!);
+          
+          console.log('Recruiter dashboard jobs response:', response);
+          
+          // Handle different response formats
+          let rawJobs: any[] = [];
+          if (Array.isArray(response)) {
+            rawJobs = response;
+          } else if (response && typeof response === 'object') {
+            if (Array.isArray(response.results)) {
+              rawJobs = response.results;
+            } else if (Array.isArray(response.jobs)) {
+              rawJobs = response.jobs;
+            } else if (Array.isArray(response.data)) {
+              rawJobs = response.data;
+            } else {
+              // Try to extract any array from the response
+              const keys = Object.keys(response);
+              for (const key of keys) {
+                if (Array.isArray(response[key])) {
+                  rawJobs = response[key];
+                  break;
+                }
+              }
+            }
+          }
+          
+          // Transform to RecentJob format
+          jobsData = rawJobs.map((job: any) => ({
+            id: job.id,
+            title: job.title,
+            company: job.company,
+            is_active: job.is_active,
+            created_at: job.created_at,
+            applications_count: job.applications_count || 0
+          }));
+          
+          console.log(`Found ${jobsData.length} jobs for current recruiter`);
+          
+        } catch (recruiterEndpointError: any) {
+          console.log('Recruiter-specific endpoint failed, trying fallback...', recruiterEndpointError);
+          
+          // Fallback: Get all jobs and filter by current user
+          try {
+            // First get current user profile
+            const userProfile = await apiFetch('/users/profile/', { 
+              method: 'GET' 
+            }, access!);
+            
+            console.log('Current user profile for filtering:', userProfile);
+            
+            // Get all jobs
+            const allJobsResponse = await apiFetch('/jobs/', { 
+              method: 'GET' 
+            }, access!);
+            
+            let allJobs: any[] = [];
+            if (Array.isArray(allJobsResponse)) {
+              allJobs = allJobsResponse;
+            } else if (allJobsResponse && allJobsResponse.results) {
+              allJobs = allJobsResponse.results;
+            }
+            
+            console.log('All jobs fetched:', allJobs.length);
+            
+            // Filter jobs by recruiter/user ID
+            const filteredJobs = allJobs.filter((job: any) => {
+              // Check different possible field names for recruiter association
+              return job.recruiter_id === userProfile.id || 
+                     job.created_by === userProfile.id ||
+                     job.user_id === userProfile.id ||
+                     job.recruiter === userProfile.id ||
+                     job.owner === userProfile.id;
+            });
+            
+            console.log('Filtered jobs for dashboard:', filteredJobs.length);
+            
+            // Transform to RecentJob format
+            jobsData = filteredJobs.map((job: any) => ({
+              id: job.id,
+              title: job.title,
+              company: job.company,
+              is_active: job.is_active,
+              created_at: job.created_at,
+              applications_count: job.applications_count || 0
+            }));
+            
+            if (filteredJobs.length === 0 && allJobs.length > 0) {
+              console.warn('No jobs filtered for current recruiter. Showing first 5 jobs with warning.');
+              setError('Note: Could not filter jobs to current recruiter. Showing sample jobs.');
+              // Show a sample of jobs
+              jobsData = allJobs.slice(0, 5).map((job: any) => ({
+                id: job.id,
+                title: job.title,
+                company: job.company,
+                is_active: job.is_active,
+                created_at: job.created_at,
+                applications_count: job.applications_count || 0
+              }));
+            }
+            
+          } catch (fallbackError: any) {
+            console.error('Fallback also failed:', fallbackError);
+            setError('Unable to load dashboard data. Please check if you have any job postings.');
+            jobsData = [];
+          }
+        }
+        
+        setJobs(jobsData);
+        
       } catch (err: any) {
         console.error('Error loading dashboard:', err);
         if (err.status === 403) {
           setError('Access restricted to recruiters only.');
           router.push('/dashboard');
-        } else if (err.status === 404) {
-          setError('Dashboard endpoint not found. Please check backend configuration.');
         } else {
-          setError(`Unable to load dashboard data: ${err.message?.detail || err.message}`);
+          setError(`Unable to load dashboard data: ${err.message?.detail || err.message || 'Unknown error'}`);
         }
       } finally {
         setLoading(false);
@@ -83,7 +182,7 @@ export default function RecruiterDashboardPage() {
     );
   }
 
-  if (error) {
+  if (error && !jobs.length) {
     return (
       <main className="mx-auto max-w-7xl px-4 py-8">
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6">
@@ -120,7 +219,19 @@ export default function RecruiterDashboardPage() {
         </p>
       </div>
 
-      {/* Stats Cards */}
+      {/* Error Warning (if any) */}
+      {error && jobs.length > 0 && (
+        <div className="mb-6 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+          <div className="flex items-center">
+            <svg className="w-5 h-5 text-yellow-400 mr-3" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            <p className="text-yellow-800 dark:text-yellow-300">{error}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Stats Cards - Calculated from recruiter's jobs */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
           <div className="flex items-center justify-between">
@@ -129,7 +240,7 @@ export default function RecruiterDashboardPage() {
                 Total Jobs
               </p>
               <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
-                {data?.stats.total_jobs || 0}
+                {totalJobs}
               </p>
             </div>
             <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
@@ -147,7 +258,7 @@ export default function RecruiterDashboardPage() {
                 Active Jobs
               </p>
               <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
-                {data?.stats.active_jobs || 0}
+                {activeJobs}
               </p>
             </div>
             <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
@@ -165,7 +276,7 @@ export default function RecruiterDashboardPage() {
                 Total Applications
               </p>
               <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
-                {data?.stats.total_applications || 0}
+                {totalApplications}
               </p>
             </div>
             <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
@@ -236,7 +347,7 @@ export default function RecruiterDashboardPage() {
         </div>
       </div>
 
-      {/* Recent Jobs */}
+      {/* Recent Jobs - Only show recruiter's jobs */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
@@ -250,14 +361,20 @@ export default function RecruiterDashboardPage() {
           </Link>
         </div>
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
-          {data?.recent_jobs && data.recent_jobs.length > 0 ? (
-            data.recent_jobs.map((job) => (
+          {jobs && jobs.length > 0 ? (
+            jobs
+              .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+              .slice(0, 5)
+              .map((job) => (
               <div key={job.id} className="px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-medium text-gray-900 dark:text-white">{job.title}</h3>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                       {job.company} • Posted on {new Date(job.created_at).toLocaleDateString('en-US')}
+                      {job.applications_count !== undefined && (
+                        <span className="ml-2">• {job.applications_count} application{job.applications_count !== 1 ? 's' : ''}</span>
+                      )}
                     </p>
                   </div>
                   <div className="flex items-center space-x-4">
