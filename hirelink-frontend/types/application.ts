@@ -34,6 +34,11 @@ export interface Job {
   required_skills: string;  // Added
   preferred_skills: string;  // Added
   has_applied?: boolean;
+
+  ai_match_score?: number;
+  skill_match_percentage?: number;
+  matching_skills?: string[];
+  rank?: number;
 }
 
 export interface Application {
@@ -132,3 +137,4 @@ export const INTERVIEW_TYPE_LABELS: Record<InterviewType, string> = {
   technical: 'Technical Interview',
   onsite: 'On-site Interview',
 };
+
