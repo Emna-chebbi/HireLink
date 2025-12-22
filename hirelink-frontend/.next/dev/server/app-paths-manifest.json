@@ -1,9 +1,9 @@
 {
-  "/dashboard/jobs/[id]/page": "app/dashboard/jobs/[id]/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
   "/dashboard/jobs/page": "app/dashboard/jobs/page.js",
   "/dashboard/page": "app/dashboard/page.js",
-  "/dashboard/profile/page": "app/dashboard/profile/page.js",
-  "/dashboard/recruiter/jobs/page": "app/dashboard/recruiter/jobs/page.js",
-  "/dashboard/recruiter/page": "app/dashboard/recruiter/page.js",
-  "/login/page": "app/login/page.js"
+  "/login/page": "app/login/page.js",
+  "/page": "app/page.js",
+  "/password-reset/page": "app/password-reset/page.js",
+  "/register/page": "app/register/page.js"
 }
