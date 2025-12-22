@@ -98,7 +98,7 @@ export default function RecruiterJobsPage() {
           }
           
           console.log('Processed recruiter jobs:', jobsData.length, 'jobs');
-          setJobs(jobsData);
+          setAllJobs(jobsData);
           
         } catch (recruiterEndpointError: any) {
           console.log('Recruiter-specific endpoint failed, trying general jobs endpoint...', recruiterEndpointError);
@@ -207,9 +207,12 @@ export default function RecruiterJobsPage() {
       console.log('Job status updated:', updateResponse);
 
       // Update local state
-      setJobs(jobs.map(job => 
+      setAllJobs(prev =>
+        prev.map(job =>
         job.id === jobId ? { ...job, is_active: !currentStatus } : job
-      ));
+      )
+  );
+
     } catch (err: any) {
       console.error('Error toggling job status:', err);
       alert(`Error updating job status: ${err.message?.detail || err.message || 'Please try again.'}`);
@@ -268,7 +271,7 @@ export default function RecruiterJobsPage() {
         }
       }
 
-      setJobs(jobs.filter(job => job.id !== jobId));
+      setAllJobs(prev => prev.filter(job => job.id !== jobId));
       closeDeleteModal();
       
     } catch (err: any) {
@@ -276,7 +279,7 @@ export default function RecruiterJobsPage() {
       alert(`Error deleting job: ${err.message?.detail || err.message || 'Please try again.'}`);
       
       if (err.message?.includes('not available')) {
-        setJobs(jobs.filter(job => job.id !== jobId));
+        setAllJobs(prev => prev.filter(job => job.id !== jobId));
         closeDeleteModal();
       }
     } finally {
@@ -406,7 +409,7 @@ export default function RecruiterJobsPage() {
           </div>
         )}
 
-        {jobs.length === 0 ? (
+        {allJobs.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-12 text-center">
             <svg
               className="w-16 h-16 mx-auto text-gray-400"

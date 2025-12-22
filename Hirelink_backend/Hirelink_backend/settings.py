@@ -26,7 +26,7 @@ INSTALLED_APPS = [
     'django_filters',
     'rest_framework',
     'rest_framework_simplejwt',  # ADD THIS
-    'django_filters',  # ADD THIS
+
 
     'corsheaders',
     'django.contrib.admin',

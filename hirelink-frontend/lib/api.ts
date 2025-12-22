@@ -56,14 +56,6 @@ export async function apiFetch(
     headers['Authorization'] = `Bearer ${accessToken}`;
   }
 
-  const url = `${baseUrl}${endpoint}`;
-  console.log(
-    'API Request:',
-    url,
-    options.method,
-    token ? 'with token' : 'no token'
-  );
-
   try {
     const response = await fetch(url, {
       ...options,
@@ -71,13 +63,6 @@ export async function apiFetch(
     });
 
     console.log('API Response Status:', response.status, response.statusText);
-
-    let data: any = null;
-    try {
-      data = await response.json();
-    } catch {
-      data = null;
-    }
 
     if (!response.ok) {
       let errorData;

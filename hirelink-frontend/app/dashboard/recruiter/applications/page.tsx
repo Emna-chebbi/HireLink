@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, getAuthToken } from '@/lib/api';
 
 type ApplicationStatus = 'new' | 'in_process' | 'rejected' | 'hired';
 
@@ -26,6 +26,12 @@ export default function RecruiterApplicationsPage() {
   const [selectedApp, setSelectedApp] = useState<ApplicationItem | null>(null);
 
   useEffect(() => {
+    const token = getAuthToken();
+    if (!token) {
+      router.push('/login');
+      return;
+    }
+
     if (typeof window !== 'undefined') {
       const role = localStorage.getItem('user_role');
       if (role !== 'recruiter') {
@@ -33,20 +39,31 @@ export default function RecruiterApplicationsPage() {
         return;
       }
     }
-    loadApplications();
+
+    loadApplications(token);
   }, [router]);
 
-  async function loadApplications() {
+  async function loadApplications(token: string) {
     try {
       setLoading(true);
       setError(null);
-      const data = await apiFetch('/users/recruiter/applications/');
+      const data = await apiFetch('/users/recruiter/applications/', {}, token);
       setApplications(data.applications || []);
     } catch (err: any) {
-      setError(
-        err?.message ||
-          'Unable to load your applications.'
-      );
+      console.error('Error loading recruiter applications:', err);
+      if (err?.status === 401) {
+        setError('Session expired. Please log in again.');
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
+        }
+        router.push('/login');
+      } else {
+        setError(
+          err?.message ||
+            'Unable to load your applications.'
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -65,18 +82,6 @@ export default function RecruiterApplicationsPage() {
             Track all applications received for your job postings.
           </p>
         </div>
-        {/*<button
-          type="button"
-          onClick={() => {
-            if (typeof window !== 'undefined') {
-              localStorage.clear();
-            }
-            router.push('/login');
-          }}
-          className="rounded-md border border-slate-700 px-3 py-1 text-xs text-slate-200 hover:bg-slate-800"
-        >
-          Logout
-        </button>*/}
       </header>
 
       {error && (
@@ -212,7 +217,6 @@ export default function RecruiterApplicationsPage() {
                     {selectedApp.job_title}
                   </p>
 
-                  {/* Here you will call your AI API later */}
                   <p className="text-slate-400">
                     This is where you will plug your AI to generate emails
                     (rejection, follow‑up, interview invitation), summarize
@@ -222,7 +226,6 @@ export default function RecruiterApplicationsPage() {
                   <button
                     type="button"
                     className="mt-2 w-full rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500"
-                    // onClick={handleGenerateAiEmail}  // to implement later
                   >
                     Generate email with AI
                   </button>
