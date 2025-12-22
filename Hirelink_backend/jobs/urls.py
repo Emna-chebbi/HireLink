@@ -38,4 +38,11 @@ urlpatterns = [
     # AI endpoints
  #   path('ai/recommendations/', views.JobRecommendationView.as_view(), name='job-recommendations'),
  #   path('ai/skill-analysis/', views.CandidateSkillAnalysisView.as_view(), name='skill-analysis'),
+
+     # AI Matching endpoints
+    path('ai/recommendations/', views.AIRecommendationsView.as_view(), name='ai-recommendations'),
+    path('ai/train/', views.TrainAIModelView.as_view(), name='ai-train'),
+    path('ai/status/', views.AIModelStatusView.as_view(), name='ai-status'),
+    path('ai/test/', views.TestAIRecommendationView.as_view(), name='ai-test'),
+    path('ai/test/<int:candidate_id>/', views.TestAIRecommendationView.as_view(), name='ai-test-candidate'),
 ]

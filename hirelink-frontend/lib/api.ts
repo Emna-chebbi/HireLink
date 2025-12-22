@@ -215,6 +215,15 @@ export const applicationApi = {
     return apiFetch(`/applications/${id}/delete/`, { method: 'DELETE' }, token);
   },
 
+  //AI recommended job Function
+  getAIRecommendations: (token: string, limit?: number) => {
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', limit.toString());
+    
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return apiFetch(`/jobs/ai/recommendations/${query}`, {}, token);
+  },
+
   // Interviews
   getInterviews: (token: string) => {
     return apiFetch('/interviews/', {}, token);
