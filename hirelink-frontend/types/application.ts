@@ -138,3 +138,22 @@ export const INTERVIEW_TYPE_LABELS: Record<InterviewType, string> = {
   onsite: 'On-site Interview',
 };
 
+export interface RecruiterApplication {
+  id: number;
+  status: ApplicationStatus;
+  cover_letter: string;
+  resume: string;
+  notes: string;
+  applied_at: string;
+  updated_at: string;
+
+  // côté candidat
+  candidate_name: string;
+  candidate_email?: string;
+  candidate_username?: string;
+
+  // côté job
+  job: RecruiterJobSummary | number; // dépend de ton serializer
+  job_title: string;
+  company_name: string;
+}

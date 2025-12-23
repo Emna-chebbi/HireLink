@@ -2,6 +2,9 @@ from dataclasses import dataclass
 from typing import Optional, Literal
 import os
 import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 EmailType = Literal["refus", "relance", "invitation"]
 
@@ -13,69 +16,76 @@ class EmailContext:
     job_title: str
     company_name: str
     application_date: str  # "YYYY-MM-DD"
-    interview_date: Optional[str]  # None ou "" si non applicable
+    interview_date: Optional[str]  # None or "" if not applicable
     email_type: EmailType
-    language: str = "fr"
-    tone: str = "professionnel"
+    # Force English by default
+    language: str = "en"
+    # Tone for English emails
+    tone: str = "professional"
 
 
 def build_prompt(ctx: EmailContext) -> str:
+    # Full context in English
     base_context = (
-        f"Contexte de recrutement :\n"
-        f"- Candidat : {ctx.candidate_name}\n"
-        f"- Poste : {ctx.job_title}\n"
-        f"- Entreprise : {ctx.company_name}\n"
-        f"- Date de candidature : {ctx.application_date}\n"
+        "Recruitment context:\n"
+        f"- Candidate: {ctx.candidate_name}\n"
+        f"- Position: {ctx.job_title}\n"
+        f"- Company: {ctx.company_name}\n"
+        f"- Application date: {ctx.application_date}\n"
     )
 
     if ctx.interview_date:
-        base_context += f"- Date d'entretien prévue : {ctx.interview_date}\n"
+        base_context += f"- Planned interview date: {ctx.interview_date}\n"
 
+    # Objectives in English, language controlled by {lang}
     if ctx.email_type == "refus":
         objective = (
-            "Rédige un email de refus de candidature en français, "
-            "au ton {tone}, poli et respectueux, "
-            "sans proposer d'autre poste concret."
+            "Write a rejection email for this job application in {lang}, "
+            "with a {tone} tone, polite and respectful, "
+            "without proposing any specific alternative position."
         )
     elif ctx.email_type == "relance":
         objective = (
-            "Rédige un email de relance pour un candidat encore en cours de process, "
-            "en français, au ton {tone}, en demandant s'il est toujours intéressé."
+            "Write a follow-up email for a candidate who is still in the hiring process, "
+            "in {lang}, with a {tone} tone, asking if they are still interested."
         )
     elif ctx.email_type == "invitation":
         objective = (
-            "Rédige un email d'invitation à un entretien pour ce poste, "
-            "en français, au ton {tone}, en mentionnant la date d'entretien indiquée."
+            "Write an interview invitation email for this position, "
+            "in {lang}, with a {tone} tone, clearly mentioning the planned interview date."
         )
     else:
-        raise ValueError(f"Type d'email non supporté: {ctx.email_type}")
+        raise ValueError(f"Unsupported email type: {ctx.email_type}")
 
     guidelines = (
-        "Contraintes de rédaction :\n"
-        "- Adresse directement le candidat par son prénom ou nom.\n"
-        "- Garde un ton professionnel et humain.\n"
-        "- Ne dépasse pas quelques paragraphes.\n"
-        "- Ne change pas les informations factuelles (nom, poste, entreprise, date).\n"
+        "Writing constraints:\n"
+        "- Directly address the candidate by their first or last name.\n"
+        "- Keep a professional and human tone.\n"
+        "- Do not write more than a few short paragraphs.\n"
+        "- Do not change factual information (name, job title, company, dates).\n"
+        "- Do not use placeholders like [Your Name], [Phone], or [Email].\n"
+        "- End the email with a generic signature such as 'Best regards' followed by 'Actia Recruitment Team'.\n"
     )
 
+
     prompt = (
-        "Tu es un assistant IA spécialisé en recrutement.\n"
+        "You are an AI assistant specialized in recruitment.\n"
         f"{base_context}\n"
-        f"{objective.format(tone=ctx.tone)}\n\n"
+        f"{objective.format(lang=ctx.language, tone=ctx.tone)}\n\n"
         f"{guidelines}\n"
-        "Réponse attendue : uniquement le corps de l'email, sans balises HTML."
+        "Expected output: only the body of the email, in plain text, without HTML tags."
     )
 
     return prompt
 
 
-def call_llm_api(prompt: str) -> str:
+def call_llm_api(prompt: str, language: str) -> str:
     api_key = os.environ.get("OPENROUTER_API_KEY")
     if not api_key:
-        raise RuntimeError("La variable d'environnement OPENROUTER_API_KEY n'est pas définie.")
+        raise RuntimeError(
+            "Environment variable OPENROUTER_API_KEY is not set."
+        )
 
-    # DEBUG : afficher le début de la clé et le modèle
-    print("Using OpenRouter key prefix:", api_key[:8], "...")
     url = "https://openrouter.ai/api/v1/chat/completions"
 
     headers = {
@@ -85,74 +95,38 @@ def call_llm_api(prompt: str) -> str:
         "X-Title": "HireLink AI Email Assistant",
     }
 
+    # System message in English, explicit about language
+    system_content = (
+        "You are an AI assistant for a recruitment platform. "
+        f"You write professional emails in {language} for job candidates."
+    )
+
     data = {
         "model": "openai/gpt-oss-120b:free",
         "messages": [
             {
                 "role": "system",
-                "content": "Tu es un assistant IA pour un site de recrutement. "
-                           "Tu rédiges des emails professionnels en français pour les candidats.",
+                "content": system_content,
             },
-            {"role": "user", "content": prompt},
+            {
+                "role": "user",
+                "content": prompt,
+            },
         ],
         "temperature": 0.4,
     }
 
     response = requests.post(url, headers=headers, json=data, timeout=30)
-    print("Status code:", response.status_code)  # DEBUG
-    print("Response text:", response.text[:300])  # DEBUG début du body
     response.raise_for_status()
     payload = response.json()
 
     try:
         return payload["choices"][0]["message"]["content"]
     except (KeyError, IndexError):
-        raise RuntimeError(f"Réponse inattendue de l'API OpenRouter: {payload}")
+        raise RuntimeError(f"Unexpected OpenRouter API response: {payload}")
 
 
 def generate_email(ctx: EmailContext) -> str:
     prompt = build_prompt(ctx)
-    generated = call_llm_api(prompt)
+    generated = call_llm_api(prompt, ctx.language)
     return generated
-
-
-if __name__ == "__main__":
-    print("=== Assistant IA HireLink – Génération d'email ===")
-
-    candidate_name = input("Nom du candidat : ").strip()
-    candidate_email = input("Email du candidat : ").strip()
-    job_title = input("Intitulé du poste : ").strip()
-    company_name = input("Nom de l'entreprise : ").strip()
-    application_date = input("Date de candidature (YYYY-MM-DD) : ").strip()
-
-    email_type = input("Type d'email (refus | relance | invitation) : ").strip().lower()
-    if email_type not in ("refus", "relance", "invitation"):
-        raise ValueError("Type d'email invalide.")
-
-    interview_date = None
-    if email_type == "invitation":
-        interview_date_input = input("Date d'entretien (YYYY-MM-DD) : ").strip()
-        interview_date = interview_date_input or None
-
-    # Tu peux laisser language/tone par défaut pour l'instant
-    language = "fr"
-    tone = "professionnel"
-
-    # ICI on crée bien le contexte ctx
-    ctx = EmailContext(
-        candidate_name=candidate_name,
-        candidate_email=candidate_email,
-        job_title=job_title,
-        company_name=company_name,
-        application_date=application_date,
-        interview_date=interview_date,
-        email_type=email_type,
-        language=language,
-        tone=tone,
-    )
-
-    # Puis on l'utilise
-    email_body = generate_email(ctx)
-
-    print("\n=== EMAIL GÉNÉRÉ ===")
-    print(email_body)
