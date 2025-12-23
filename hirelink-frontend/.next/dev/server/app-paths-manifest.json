@@ -1,0 +1,9 @@
+{
+  "/dashboard/jobs/[id]/page": "app/dashboard/jobs/[id]/page.js",
+  "/dashboard/jobs/page": "app/dashboard/jobs/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/dashboard/profile/page": "app/dashboard/profile/page.js",
+  "/dashboard/recruiter/jobs/page": "app/dashboard/recruiter/jobs/page.js",
+  "/dashboard/recruiter/page": "app/dashboard/recruiter/page.js",
+  "/login/page": "app/login/page.js"
+}
