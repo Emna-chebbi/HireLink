@@ -1,4 +1,4 @@
-// lib/api.ts - FIXED (removed /toggle/ endpoint)
+// lib/api.ts - FIXED (correct endpoints)
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
 // File upload helper for applications
@@ -8,13 +8,13 @@ export async function apiUploadFile(
   accessToken: string
 ) {
   const headers: HeadersInit = {
-    'Authorization': `Bearer ${accessToken}`,
+    'Authorization': Bearer ${accessToken},
   };
   
   let baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
   baseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash
   
-  const res = await fetch(`${baseUrl}${path}`, {
+  const res = await fetch(${baseUrl}${path}, {
     method: 'POST',
     headers,
     body: formData,
@@ -23,7 +23,7 @@ export async function apiUploadFile(
   const text = await res.text();
 
   if (!res.ok) {
-    throw new Error(text || `Request failed with status ${res.status}`);
+    throw new Error(text || Request failed with status ${res.status});
   }
 
   try {
@@ -44,7 +44,7 @@ export async function apiFetch(
   // Remove any trailing slash
   baseUrl = baseUrl.replace(/\/$/, '');
   
-  const url = `${baseUrl}${endpoint}`;
+  const url = ${baseUrl}${endpoint};
   console.log('API Request URL:', url, options.method, accessToken ? 'with token' : 'no token');
   
   const headers: HeadersInit = {
@@ -53,7 +53,7 @@ export async function apiFetch(
   };
 
   if (accessToken) {
-    headers['Authorization'] = `Bearer ${accessToken}`;
+    headers['Authorization'] = Bearer ${accessToken};
   }
 
   try {
@@ -73,7 +73,7 @@ export async function apiFetch(
         errorData = responseText ? JSON.parse(responseText) : {};
       } catch {
         errorData = { 
-          detail: `HTTP ${response.status}: ${response.statusText}`,
+          detail: HTTP ${response.status}: ${response.statusText},
           raw: responseText
         };
       }
@@ -83,7 +83,7 @@ export async function apiFetch(
         console.error('API Error:', errorData);
       }
       
-      const error = new Error(errorData.detail || `HTTP ${response.status}`);
+      const error = new Error(errorData.detail || HTTP ${response.status});
       (error as any).status = response.status;
       (error as any).data = errorData;
       throw error;
@@ -98,7 +98,7 @@ export async function apiFetch(
       return data;
     } catch (parseError) {
       console.error('Failed to parse JSON:', parseError);
-      throw new Error(`Invalid JSON response: ${responseText}`);
+      throw new Error(Invalid JSON response: ${responseText});
     }
   } catch (error) {
     console.error('API Fetch Error:', error);
@@ -106,7 +106,7 @@ export async function apiFetch(
   }
 }
 
-// Recruiter-specific API helpers - USING OLD WORKING ENDPOINTS
+// Recruiter-specific API helpers
 export const recruiterApi = {
   // Dashboard stats - FROM OLD CODE: /jobs/recruiter/stats/
   getRecruiterStats: (token: string) => {
@@ -128,39 +128,36 @@ export const recruiterApi = {
 
   // Update job - FROM OLD CODE: /jobs/${jobId}/update/
   updateJob: (token: string, jobId: number, data: any) => {
-    return apiFetch(`/jobs/${jobId}/update/`, {
+    return apiFetch(/jobs/${jobId}/update/, {
       method: 'PATCH',
       body: JSON.stringify(data),
     }, token);
   },
 
-  // REMOVED: toggleJobStatus function since /toggle/ endpoint doesn't exist
-  // Use updateJob instead with is_active field
-
   // Delete job - FROM OLD CODE: /jobs/${jobId}/delete/
   deleteJob: (token: string, jobId: number) => {
-    return apiFetch(`/jobs/${jobId}/delete/`, {
+    return apiFetch(/jobs/${jobId}/delete/, {
       method: 'DELETE',
     }, token);
   },
 
   // Get job details - FROM OLD CODE: /jobs/${jobId}/
   getJob: (token: string, jobId: number) => {
-    return apiFetch(`/jobs/${jobId}/`, {}, token);
+    return apiFetch(/jobs/${jobId}/, {}, token);
   },
 
-  // Get job applications - NEED TO CHECK THIS ENDPOINT
+  // Get job applications
   getJobApplications: (token: string, jobId: number) => {
-    return apiFetch(`/jobs/recruiter/applications/${jobId}/`, {}, token);
+    return apiFetch(/jobs/recruiter/applications/${jobId}/, {}, token);
   },
 
-  // Get all applications for recruiter - NEED TO CHECK THIS ENDPOINT
+  // Get all applications for recruiter
   getAllApplications: (token: string) => {
     return apiFetch('/jobs/recruiter/applications/', {}, token);
   },
 };
 
-// Application-specific API helpers - KEEP AS IS
+// Application-specific API helpers - CORRECTED ENDPOINTS
 export const applicationApi = {
   // Jobs - Use /jobs/ for candidates
   getJobs: (token: string, filters?: any) => {
@@ -169,8 +166,8 @@ export const applicationApi = {
     if (filters?.location) params.append('location', filters.location);
     if (filters?.search) params.append('search', filters.search);
     
-    const query = params.toString() ? `?${params.toString()}` : '';
-    return apiFetch(`/jobs/${query}`, {}, token);
+    const query = params.toString() ? ?${params.toString()} : '';
+    return apiFetch(/jobs/${query}, {}, token);
   },
 
   // Profile
@@ -186,42 +183,45 @@ export const applicationApi = {
   },
   
   getJob: (id: number, token: string) => {
-    return apiFetch(`/jobs/${id}/`, {}, token);
+    return apiFetch(/jobs/${id}/, {}, token);
   },
 
-  // Applications
+  // Applications - CORRECTED: Use /applications/ for POST (create) and GET (list)
   getApplications: (token: string, filters?: { status?: string }) => {
     const params = new URLSearchParams();
     if (filters?.status) params.append('status', filters.status);
     
-    const query = params.toString() ? `?${params.toString()}` : '';
-    return apiFetch(`/applications/${query}`, {}, token);
+    const query = params.toString() ? ?${params.toString()} : '';
+    return apiFetch(/applications/${query}, {}, token);
   },
 
   getApplication: (id: number, token: string) => {
-    return apiFetch(`/applications/${id}/`, {}, token);
+    return apiFetch(/applications/${id}/, {}, token);
   },
 
+  // FIXED: Changed from '/applications/create/' to '/applications/' (POST to create)
   createApplication: (token: string, data: { job: number; cover_letter: string; resume: File }) => {
     const formData = new FormData();
     formData.append('job', data.job.toString());
     formData.append('cover_letter', data.cover_letter);
     formData.append('resume', data.resume);
     
-    return apiUploadFile('/applications/create/', formData, token);
+    // CORRECT: POST to /applications/ to create new application
+    return apiUploadFile('/applications/', formData, token);
   },
 
+  // FIXED: Changed from '/applications/{id}/delete/' to '/applications/{id}/' (DELETE)
   deleteApplication: (id: number, token: string) => {
-    return apiFetch(`/applications/${id}/delete/`, { method: 'DELETE' }, token);
+    return apiFetch(/applications/${id}/, { method: 'DELETE' }, token);
   },
 
-  //AI recommended job Function
+  // AI recommended job Function
   getAIRecommendations: (token: string, limit?: number) => {
     const params = new URLSearchParams();
     if (limit) params.append('limit', limit.toString());
     
-    const query = params.toString() ? `?${params.toString()}` : '';
-    return apiFetch(`/jobs/ai/recommendations/${query}`, {}, token);
+    const query = params.toString() ? ?${params.toString()} : '';
+    return apiFetch(/jobs/ai/recommendations/${query}, {}, token);
   },
 
   // Interviews
@@ -235,12 +235,35 @@ export const applicationApi = {
   },
 
   markAllNotificationsRead: (token: string) => {
-    return apiFetch('/notifications/mark_all_read/', { method: 'POST' }, token);
+    return apiFetch('/notifications/mark_all_read/', { 
+      method: 'POST',
+      body: JSON.stringify({}) 
+    }, token);
   },
 
   // Stats
   getApplicationStats: (token: string) => {
     return apiFetch('/stats/applications/', {}, token);
+  },
+
+  // Additional endpoints from your Django URLs
+  saveJob: (token: string, jobId: number) => {
+    return apiFetch(/jobs/${jobId}/save/, { method: 'POST' }, token);
+  },
+
+  applyJob: (token: string, jobId: number, data: any) => {
+    return apiFetch(/jobs/${jobId}/apply/, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }, token);
+  },
+
+  getSavedJobs: (token: string) => {
+    return apiFetch('/candidate/saved-jobs/', {}, token);
+  },
+
+  getCandidateApplications: (token: string) => {
+    return apiFetch('/candidate/applications/', {}, token);
   },
 };
 
